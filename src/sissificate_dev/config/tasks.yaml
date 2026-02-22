@@ -1,0 +1,190 @@
+# Sissificate Development Tasks
+
+tasks:
+  - id: fetch_available_task
+    description: |
+      Query GitHub Projects for available DEV-TASKs with status "Ready".
+      Use the GitHub MCP or API to find issues that:
+      1. Have title starting with "DEV-"
+      2. Have status "Ready"
+      3. Have no assignee
+      4. Have upstream PTASK marked as "dev_ready"
+      
+      Return the task ID, title, and epic for the first available task.
+    expected_output: |
+      A JSON object containing:
+      {
+        "task_id": "DEV-XXXX",
+        "title": "Task title",
+        "epic": "PEPIC-XXX",
+        "issue_number": 123,
+        "status": "Ready"
+      }
+    agent: devops_coordinator
+
+  - id: lock_task
+    description: |
+      Lock a GitHub issue to prevent concurrent work:
+      1. Update issue status to "In Progress"
+      2. Add assignee (agent name)
+      3. Add comment: "Agent starting work on this task"
+      4. Create lock file: .lock.DEV-XXXX
+      
+      If the task is already locked or assigned, abort and return error.
+    expected_output: |
+      Confirmation that the task is locked, or error message if already taken.
+    agent: devops_coordinator
+    context: [fetch_available_task]
+
+  - id: read_task_specification
+    description: |
+      Read the full DEV-TASK specification from the repository:
+      1. Read file: docs/workboard/development/tasks/DEV-XXXX.md
+      2. Parse all sections: Metadata, Functional Objective, Technical Scope, 
+         Component Hierarchy, API Contracts, Acceptance Criteria
+      3. Read upstream PTASK if referenced: docs/workboard/product/tasks/PTASK-XXXX.md
+      4. Identify all files that need to be modified or created
+      
+      Return a structured summary of the task requirements.
+    expected_output: |
+      A detailed JSON object containing all task requirements, including:
+      - Components to create/modify
+      - API routes needed
+      - Database changes
+      - Validation schemas
+      - Acceptance criteria checklist
+    agent: senior_frontend_engineer
+
+  - id: analyze_codebase
+    description: |
+      Analyze the existing codebase to understand patterns and conventions:
+      1. Search for similar existing components
+      2. Identify coding patterns and conventions
+      3. Find reusable utilities, hooks, and components
+      4. Check for existing i18n keys structure
+      5. Identify potential conflicts with other agents
+      
+      Return a codebase analysis report.
+    expected_output: |
+      Analysis report containing:
+      - Similar components found
+      - Code patterns to follow
+      - Files that may conflict with other work
+      - Recommended implementation approach
+    agent: senior_frontend_engineer
+    context: [read_task_specification]
+
+  - id: implement_frontend
+    description: |
+      Implement frontend UI components and pages according to the specification:
+      
+      Rules:
+      1. ALWAYS read existing files before modifying
+      2. Follow mobile-first design (375px+)
+      3. Include a11y attributes (role, aria-label)
+      4. Use i18n keys from messages/en/*.json and messages/es/*.json
+      5. Add loading/error/empty states
+      6. Include analytics tracking hooks
+      7. Use React Hook Form + Zod for forms
+      8. Use SWR for data fetching
+      
+      Create or modify:
+      - Page components in app/[locale]/(app)/
+      - Feature components in features/*/
+      - Shared components in components/
+      - i18n keys in messages/
+    expected_output: |
+      List of all files created/modified with brief descriptions.
+      Code should follow existing patterns and conventions.
+    agent: senior_frontend_engineer
+    context: [analyze_codebase]
+
+  - id: implement_backend
+    description: |
+      Implement backend API routes and database changes:
+      
+      Rules:
+      1. Create API routes in app/api/
+      2. Use Zod schemas for validation
+      3. Use InsForge SDK for database operations
+      4. Implement proper error handling
+      5. Add RLS policies if creating new tables
+      6. Update database types if schema changes
+      
+      Create or modify:
+      - API routes in app/api/
+      - Validation schemas in features/*/schemas.ts
+      - SWR keys in lib/swr/keys.ts
+      - Database migrations if needed
+    expected_output: |
+      List of all backend files created/modified with brief descriptions.
+      Include any database schema changes.
+    agent: senior_backend_engineer
+    context: [implement_frontend]
+
+  - id: write_tests
+    description: |
+      Write E2E tests using Playwright:
+      1. Create test file in tests/
+      2. Test happy path
+      3. Test error states
+      4. Test empty states
+      5. Test mobile viewport (375px)
+      6. Test keyboard navigation
+      
+      Run tests and report results.
+    expected_output: |
+      Test file created and test results (passed/failed/skipped).
+    agent: qa_engineer
+    context: [implement_backend]
+
+  - id: validate_implementation
+    description: |
+      Validate the implementation meets all acceptance criteria:
+      1. Run: bun run lint
+      2. Run: bun run build
+      3. Run: bun run test:a11y
+      4. Verify mobile-first (check responsive)
+      5. Verify i18n keys exist for en and es
+      6. Verify analytics events are instrumented
+      7. Check each acceptance criteria item
+      
+      Return a validation report with pass/fail for each criterion.
+    expected_output: |
+      Validation report with:
+      - Lint status
+      - Build status
+      - A11y test status
+      - Acceptance criteria checklist (all items)
+      - Any issues found
+    agent: qa_engineer
+    context: [write_tests]
+
+  - id: commit_and_push
+    description: |
+      Commit and push the implementation:
+      1. Create feature branch: dev/DEV-XXXX-summary
+      2. Stage relevant files (not all changes)
+      3. Commit with message: feat(DEV-XXXX): brief description
+      4. Push to remote
+      5. Create PR linking to issue
+      
+      Do NOT push to main branch.
+    expected_output: |
+      Commit hash, branch name, and PR URL.
+    agent: devops_coordinator
+    context: [validate_implementation]
+
+  - id: update_github_issue
+    description: |
+      Update the GitHub issue with completion status:
+      1. Add comment with evidence (lint, build, test results)
+      2. Update status to "In QA"
+      3. Remove lock file
+      4. Link PR to issue
+      
+      Return confirmation of all updates.
+    expected_output: |
+      Confirmation that issue was updated with evidence and moved to "In QA".
+    agent: devops_coordinator
+    context: [commit_and_push]
