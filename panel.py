@@ -548,11 +548,14 @@ def main():
     
     st.markdown("### 📜 Recent Logs")
     
-    log_col1, log_col2 = st.columns([4, 1])
+    log_col1, log_col2, log_col3 = st.columns([3, 1, 1])
     with log_col2:
+        if st.button("🔄 Refresh", use_container_width=True):
+            st.cache_resource.clear()
+            st.rerun()
+    with log_col3:
         if st.button("🗑️ Clear", use_container_width=True):
             st.session_state.logs = []
-        auto_refresh = st.checkbox("Auto-refresh", value=True)
     
     if not st.session_state.logs:
         st.session_state.logs = [
@@ -565,10 +568,6 @@ def main():
         log_text += f'<span style="color:{color}">[{log["time"]}] [{log["level"]}] {log["message"]}</span><br>'
     
     st.markdown(f'<div class="log-panel">{log_text}</div>', unsafe_allow_html=True)
-    
-    if auto_refresh:
-        time.sleep(0.5)
-        st.rerun()
 
 
 if __name__ == "__main__":
